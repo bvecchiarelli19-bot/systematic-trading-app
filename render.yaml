@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: systematic-trading-app
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/status
+    envVars:
+      - key: REFRESH_INTERVAL
+        value: "120"
+      - key: PYTHONUNBUFFERED
+        value: "1"

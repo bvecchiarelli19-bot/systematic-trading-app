@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Trade Validation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/validate.css">
+</head>
+<body>
+    <div class="validate-container">
+        <!-- Header -->
+        <header class="validate-header">
+            <div class="header-left">
+                <a href="/" class="back-link">&larr; Back to Screener</a>
+                <h1>Pre-Trade Validation</h1>
+                <div class="subtitle">Structured decision process &mdash; no skipping steps</div>
+            </div>
+            <div class="header-right">
+                <div class="stock-badge" id="stock-badge">
+                    <span class="stock-ticker" id="header-ticker">—</span>
+                    <span class="stock-price" id="header-price">—</span>
+                    <span class="regime-badge" id="header-regime">—</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Progress Bar -->
+        <div class="progress-track">
+            <div class="progress-steps">
+                <div class="progress-step active" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Regime</div>
+                </div>
+                <div class="progress-connector"></div>
+                <div class="progress-step" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Thesis</div>
+                </div>
+                <div class="progress-connector"></div>
+                <div class="progress-step" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Asymmetry</div>
+                </div>
+                <div class="progress-connector"></div>
+                <div class="progress-step" data-step="4">
+                    <div class="step-number">4</div>
+                    <div class="step-label">Bias Check</div>
+                </div>
+                <div class="progress-connector"></div>
+                <div class="progress-step" data-step="5">
+                    <div class="step-number">5</div>
+                    <div class="step-label">Decision</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step Panels -->
+        <div class="steps-wrapper">
+
+            <!-- Step 1: Regime Confirmation -->
+            <div class="step-panel active" id="step-1">
+                <div class="step-card">
+                    <h2>Step 1 &mdash; Regime Confirmation</h2>
+                    <p class="step-desc">Review the regime classification from the screener. Do you agree with the quantitative reading?</p>
+
+                    <div class="regime-display">
+                        <div class="regime-info-grid">
+                            <div class="regime-info-item">
+                                <span class="info-label">Current Regime</span>
+                                <span class="regime-badge regime-lg" id="regime-display">—</span>
+                            </div>
+                            <div class="regime-info-item">
+                                <span class="info-label">Composite Score</span>
+                                <span class="info-value mono" id="regime-score">—</span>
+                            </div>
+                            <div class="regime-info-item">
+                                <span class="info-label">Vol Percentile</span>
+                                <span class="info-value mono" id="regime-vol">—</span>
+                            </div>
+                            <div class="regime-info-item">
+                                <span class="info-label">10M SMA Trend</span>
+                                <span class="info-value" id="regime-sma">—</span>
+                            </div>
+                            <div class="regime-info-item">
+                                <span class="info-label">Hurst Exponent</span>
+                                <span class="info-value mono" id="regime-hurst">—</span>
+                            </div>
+                            <div class="regime-info-item">
+                                <span class="info-label">Tail Risk (CVaR)</span>
+                                <span class="info-value mono" id="regime-tail">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="confirm-section">
+                        <label class="confirm-label">Do you agree with this regime classification?</label>
+                        <div class="confirm-buttons" id="regime-confirm-btns">
+                            <button class="confirm-btn agree" onclick="confirmRegime(true)">Yes, I agree with the reading</button>
+                            <button class="confirm-btn disagree" onclick="confirmRegime(false)">No, I disagree</button>
+                        </div>
+                        <div class="disagree-warning" id="disagree-warning" style="display:none;">
+                            <div class="warning-icon">!</div>
+                            <div>
+                                <strong>Regime disagreement noted.</strong> Your override will be logged. The quantitative regime still governs position sizing. Proceeding with your assessment on record.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-actions" id="step1-actions" style="display:none;">
+                        <button class="btn btn-primary btn-lg" onclick="goToStep(2)">Continue to Thesis &rarr;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Thesis Input -->
+            <div class="step-panel" id="step-2">
+                <div class="step-card">
+                    <h2>Step 2 &mdash; Edge Statement</h2>
+                    <p class="step-desc">Write your specific thesis. Why is consensus wrong on <strong id="thesis-ticker">this stock</strong>? What edge do you see that the market is missing?</p>
+
+                    <div class="thesis-input-group">
+                        <textarea id="thesis-input" class="thesis-textarea" placeholder="Example: The market is pricing in a worst-case regulatory outcome for [ticker]. The current valuation implies zero revenue growth, but their Q3 pipeline data shows 3 products in Phase III trials with >80% historical approval rates. The risk/reward skews heavily positive if even one approval comes through..."
+                            rows="6" maxlength="2000"></textarea>
+                        <div class="char-count"><span id="char-count">0</span> / 2,000</div>
+                    </div>
+
+                    <div class="thesis-quality" id="thesis-quality" style="display:none;">
+                        <div class="quality-header">Thesis Quality Check</div>
+                        <div class="quality-items">
+                            <div class="quality-item" id="q-specific">
+                                <span class="q-icon">&#x2717;</span> Specific (mentions a catalyst or data point)
+                            </div>
+                            <div class="quality-item" id="q-contrarian">
+                                <span class="q-icon">&#x2717;</span> Contrarian (explains why consensus is wrong)
+                            </div>
+                            <div class="quality-item" id="q-falsifiable">
+                                <span class="q-icon">&#x2717;</span> Falsifiable (can be proven wrong)
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-actions">
+                        <button class="btn" onclick="goToStep(1)">&larr; Back</button>
+                        <button class="btn btn-primary btn-lg" id="thesis-continue" onclick="submitThesis()" disabled>Continue to Asymmetry &rarr;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Asymmetry Gate -->
+            <div class="step-panel" id="step-3">
+                <div class="step-card">
+                    <h2>Step 3 &mdash; Asymmetry Gate</h2>
+                    <p class="step-desc">Define your target and stop. The risk/reward must be at least <strong>5:1</strong> to proceed. No exceptions.</p>
+
+                    <div class="asymmetry-inputs">
+                        <div class="price-input-group">
+                            <div class="price-field">
+                                <label>Current Price</label>
+                                <div class="price-display mono" id="asym-current">$0.00</div>
+                            </div>
+                            <div class="price-field">
+                                <label>Target Price</label>
+                                <div class="input-wrapper">
+                                    <span class="input-prefix">$</span>
+                                    <input type="number" id="target-price" class="price-input" step="0.01" placeholder="0.00" oninput="calcAsymmetry()">
+                                </div>
+                            </div>
+                            <div class="price-field">
+                                <label>Stop Price</label>
+                                <div class="input-wrapper">
+                                    <span class="input-prefix">$</span>
+                                    <input type="number" id="stop-price" class="price-input" step="0.01" placeholder="0.00" oninput="calcAsymmetry()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="asymmetry-result" id="asymmetry-result" style="display:none;">
+                            <div class="asym-ratio-display">
+                                <div class="asym-label">Risk/Reward Ratio</div>
+                                <div class="asym-value mono" id="asym-ratio">—</div>
+                            </div>
+                            <div class="asym-breakdown">
+                                <div class="asym-item upside">
+                                    <span class="asym-item-label">Upside</span>
+                                    <span class="asym-item-value mono" id="asym-upside">—</span>
+                                </div>
+                                <div class="asym-item downside">
+                                    <span class="asym-item-label">Downside</span>
+                                    <span class="asym-item-value mono" id="asym-downside">—</span>
+                                </div>
+                            </div>
+                            <div class="asym-gate" id="asym-gate">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-actions">
+                        <button class="btn" onclick="goToStep(2)">&larr; Back</button>
+                        <button class="btn btn-primary btn-lg" id="asym-continue" onclick="goToStep(4)" disabled>Continue to Bias Check &rarr;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Behavioral Bias Checklist -->
+            <div class="step-panel" id="step-4">
+                <div class="step-card">
+                    <h2>Step 4 &mdash; Behavioral Bias Checklist</h2>
+                    <p class="step-desc">Answer each question honestly. These are designed to surface cognitive biases before you commit capital.</p>
+
+                    <div class="bias-checklist">
+                        <div class="bias-item" data-bias="anchoring">
+                            <div class="bias-question">
+                                <span class="bias-number">1</span>
+                                <span>Am I anchoring to a recent price level?</span>
+                            </div>
+                            <p class="bias-explain">Are you fixating on where the stock was last week/month rather than assessing intrinsic value independently?</p>
+                            <div class="bias-buttons">
+                                <button class="bias-btn" onclick="answerBias('anchoring', true)">Yes, I might be</button>
+                                <button class="bias-btn" onclick="answerBias('anchoring', false)">No, my analysis is independent</button>
+                            </div>
+                        </div>
+
+                        <div class="bias-item" data-bias="herding">
+                            <div class="bias-question">
+                                <span class="bias-number">2</span>
+                                <span>Am I following the crowd on this?</span>
+                            </div>
+                            <p class="bias-explain">Is this trade popular on social media/forums? Would you still take it if nobody else was talking about it?</p>
+                            <div class="bias-buttons">
+                                <button class="bias-btn" onclick="answerBias('herding', true)">Yes, it's a popular trade</button>
+                                <button class="bias-btn" onclick="answerBias('herding', false)">No, this is my own analysis</button>
+                            </div>
+                        </div>
+
+                        <div class="bias-item" data-bias="overconfidence">
+                            <div class="bias-question">
+                                <span class="bias-number">3</span>
+                                <span>Am I overconfident in this thesis?</span>
+                            </div>
+                            <p class="bias-explain">Can you articulate three specific ways your thesis could be wrong? If not, you may be overconfident.</p>
+                            <div class="bias-buttons">
+                                <button class="bias-btn" onclick="answerBias('overconfidence', true)">Yes, I might be overconfident</button>
+                                <button class="bias-btn" onclick="answerBias('overconfidence', false)">No, I've considered the bear case</button>
+                            </div>
+                        </div>
+
+                        <div class="bias-item" data-bias="wrongdefined">
+                            <div class="bias-question">
+                                <span class="bias-number">4</span>
+                                <span>Have I defined what "wrong" looks like?</span>
+                            </div>
+                            <p class="bias-explain">Do you have a specific, measurable condition that would invalidate your thesis and trigger an exit?</p>
+                            <div class="bias-buttons">
+                                <button class="bias-btn" onclick="answerBias('wrongdefined', false)">No, I haven't defined it yet</button>
+                                <button class="bias-btn" onclick="answerBias('wrongdefined', true)">Yes, I have a clear exit trigger</button>
+                            </div>
+                        </div>
+
+                        <div class="bias-item" data-bias="positionsize">
+                            <div class="bias-question">
+                                <span class="bias-number">5</span>
+                                <span>Is my position size regime-appropriate?</span>
+                            </div>
+                            <p class="bias-explain">The screener recommends <strong id="bias-position">—%</strong> for this regime. Are you planning to respect that limit?</p>
+                            <div class="bias-buttons">
+                                <button class="bias-btn" onclick="answerBias('positionsize', true)">Yes, I'll respect the regime sizing</button>
+                                <button class="bias-btn" onclick="answerBias('positionsize', false)">No, I want to size differently</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bias-summary" id="bias-summary" style="display:none;">
+                        <div class="bias-score-header">
+                            <span>Bias Score</span>
+                            <span class="mono" id="bias-score-value">—</span>
+                        </div>
+                        <div class="bias-score-bar">
+                            <div class="bias-score-fill" id="bias-score-fill"></div>
+                        </div>
+                        <div class="bias-score-label" id="bias-score-label">—</div>
+                    </div>
+
+                    <div class="step-actions">
+                        <button class="btn" onclick="goToStep(3)">&larr; Back</button>
+                        <button class="btn btn-primary btn-lg" id="bias-continue" onclick="renderDecision()" disabled>Get Decision &rarr;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5: Go/No-Go Decision -->
+            <div class="step-panel" id="step-5">
+                <div class="step-card">
+                    <h2>Step 5 &mdash; Go / No-Go Decision</h2>
+                    <p class="step-desc">Based on all inputs, here is your structured pre-trade assessment.</p>
+
+                    <div class="decision-display" id="decision-display">
+                        <!-- Filled by JS -->
+                    </div>
+
+                    <div class="decision-reasoning" id="decision-reasoning">
+                        <!-- Filled by JS -->
+                    </div>
+
+                    <div class="step-actions" id="step5-actions">
+                        <button class="btn" onclick="goToStep(4)">&larr; Back to Bias Check</button>
+                        <button class="btn" onclick="window.location.href='/'">Return to Screener</button>
+                        <button class="btn btn-primary btn-lg" id="journal-btn" style="display:none;" onclick="sendToJournal()">Send to Journal &rarr;</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/validate.js?v=1"></script>
+</body>
+</html>

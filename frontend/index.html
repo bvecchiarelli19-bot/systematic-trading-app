@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Systematic Trading Screener</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Systematic Screener</h1>
+                <div class="subtitle">S&P 500 Regime Detection &amp; Position Sizing</div>
+            </div>
+            <div class="header-right">
+                <div class="status-badge">
+                    <div class="status-dot loading" id="status-dot"></div>
+                    <span id="status-text">Connecting...</span>
+                </div>
+                <button class="btn" id="refresh-btn">&#8635; Refresh Data</button>
+            </div>
+        </header>
+
+        <!-- Stats Row -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="label">Stocks Screened</div>
+                <div class="value" id="stat-screened">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Passing Gates</div>
+                <div class="value green" id="stat-passing">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Displayed</div>
+                <div class="value" id="stat-displayed">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Regime Distribution</div>
+                <div class="value" id="stat-regimes" style="font-size:14px;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">—</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-bar">
+            <input type="text" class="search-input" id="search" placeholder="Search ticker, name, or sector...">
+            <select id="regime-filter">
+                <option value="">All Regimes</option>
+                <option value="CALM">CALM</option>
+                <option value="CAUTIOUS">CAUTIOUS</option>
+                <option value="RISKY">RISKY</option>
+                <option value="CRISIS">CRISIS</option>
+            </select>
+            <select id="sector-filter">
+                <option value="">All Sectors</option>
+            </select>
+            <div class="toggle-group">
+                <button class="toggle-btn active" data-value="candidates">Candidates Only</button>
+                <button class="toggle-btn" data-value="all">All Stocks</button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="loading-state">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading market data...</div>
+            <div class="loading-subtext">First run downloads 2 years of S&P 500 data. This may take a few minutes.</div>
+        </div>
+
+        <!-- Main Table -->
+        <div class="table-container">
+            <table id="main-table" style="display:none">
+                <thead>
+                    <tr>
+                        <th data-sort="ticker" onclick="sortTable('ticker')">Ticker <span class="sort-arrow"></span></th>
+                        <th>Name</th>
+                        <th data-sort="sector" onclick="sortTable('sector')">Sector <span class="sort-arrow"></span></th>
+                        <th data-sort="price" onclick="sortTable('price')" style="text-align:right">Price <span class="sort-arrow"></span></th>
+                        <th data-sort="regime" onclick="sortTable('regime')">Regime <span class="sort-arrow"></span></th>
+                        <th data-sort="position_pct" onclick="sortTable('position_pct')">Position <span class="sort-arrow"></span></th>
+                        <th>Vol %ile</th>
+                        <th>SMA</th>
+                        <th>Hurst</th>
+                        <th>Tail</th>
+                        <th data-sort="composite_score" onclick="sortTable('composite_score')" class="sorted">Score <span class="sort-arrow">&#9650;</span></th>
+                    </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+            <div id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="detail-overlay" id="detail-overlay">
+        <div class="detail-panel">
+            <div class="detail-header">
+                <div>
+                    <div class="detail-ticker" id="detail-ticker"></div>
+                    <div class="detail-name" id="detail-name"></div>
+                    <div class="detail-name" id="detail-sector" style="margin-top:2px"></div>
+                </div>
+                <button class="close-btn" id="close-detail">&times;</button>
+            </div>
+
+            <div class="detail-section">
+                <h3>Overview</h3>
+                <div class="indicator-row">
+                    <span class="indicator-label">Price</span>
+                    <span class="indicator-value" id="detail-price"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">Regime</span>
+                    <span id="detail-regime" class="regime-badge"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">Position Size</span>
+                    <span class="indicator-value" id="detail-position"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">Composite Score</span>
+                    <span class="indicator-value" id="detail-composite"></span>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h3>60-Day Price</h3>
+                <div class="sparkline-container">
+                    <canvas id="sparkline-canvas"></canvas>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h3>Indicators</h3>
+                <div class="indicator-row">
+                    <span class="indicator-label">Volatility Percentile</span>
+                    <span class="indicator-value" id="detail-vol"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">10M SMA Trend</span>
+                    <span class="indicator-value" id="detail-sma"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">Hurst Exponent</span>
+                    <span class="indicator-value" id="detail-hurst"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">Tail Risk (CVaR)</span>
+                    <span class="indicator-value" id="detail-tail"></span>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h3>Sub-Scores (0 = best, 3 = worst)</h3>
+                <div class="indicator-row">
+                    <span class="indicator-label">Volatility</span>
+                    <span class="indicator-value" id="detail-vol-score"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">Trend</span>
+                    <span class="indicator-value" id="detail-trend-score"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">Hurst</span>
+                    <span class="indicator-value" id="detail-hurst-score"></span>
+                </div>
+                <div class="indicator-row">
+                    <span class="indicator-label">Tail Risk</span>
+                    <span class="indicator-value" id="detail-tail-score"></span>
+                </div>
+            </div>
+
+            <!-- Validate button — only shown for passing candidates -->
+            <div id="validate-section" style="display:none; margin-top:8px;">
+                <button class="btn btn-primary" id="validate-btn" onclick="validateTrade()" style="width:100%;padding:12px;font-size:14px;font-weight:600;letter-spacing:0.3px">
+                    Validate This Trade &rarr;
+                </button>
+                <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:6px">
+                    Passes all quantitative gates — proceed to pre-trade validation
+                </div>
+            </div>
+            <div id="no-validate-section" style="display:none; margin-top:8px;">
+                <div style="padding:12px;border:1px solid var(--border);border-radius:var(--radius);text-align:center;">
+                    <div style="font-size:13px;color:var(--red);font-weight:600;">Does Not Pass Gates</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px" id="gate-fail-reason"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=2"></script>
+</body>
+</html>
