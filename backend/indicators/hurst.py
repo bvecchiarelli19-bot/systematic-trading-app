@@ -55,16 +55,17 @@ def compute_hurst(closes: np.ndarray) -> float | None:
 def score_hurst(hurst: float | None) -> int:
     """Score 0-3 based on Hurst exponent.
 
-    Low H (mean-reverting) in a trending system = problematic.
-    High H (trending) = favorable for momentum strategies.
+    Thresholds calibrated to the empirical S&P 500 distribution (median ~0.61).
+    High H (trending) = favorable for momentum/trend strategies.
+    Low H (near random walk) = unfavorable — no exploitable persistence.
     """
     if hurst is None:
-        return 1
-    if hurst >= 0.55:
-        return 0  # strong trend — favorable
-    elif hurst >= 0.45:
-        return 1  # random walk — neutral
-    elif hurst >= 0.35:
-        return 2  # mild mean-reversion
+        return 2
+    if hurst >= 0.65:
+        return 0  # strong trend — favorable (~P75+)
+    elif hurst >= 0.58:
+        return 1  # moderate trend — acceptable (~P25-P75)
+    elif hurst >= 0.54:
+        return 2  # weak/borderline — caution (~P5-P25)
     else:
-        return 3  # strong mean-reversion — unfavorable for trend-following
+        return 3  # near random walk — unfavorable for trend-following (<P5)

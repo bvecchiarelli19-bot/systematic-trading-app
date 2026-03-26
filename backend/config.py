@@ -17,7 +17,7 @@ VOLATILITY_WINDOW = 21        # 1-month realized vol
 VOLATILITY_LOOKBACK = 252     # 1-year historical distribution
 SMA_PERIOD = 210              # ~10 months trading days
 HURST_LOOKBACK = 252          # 1-year for Hurst calculation
-HURST_MAX_LAG = 20
+HURST_MAX_LAG = 100            # lags 2–100 for robust R/S estimation
 TAIL_RISK_WINDOW = 63         # 3-month rolling window
 TAIL_RISK_PERCENTILE = 5      # 5th percentile (CVaR proxy)
 

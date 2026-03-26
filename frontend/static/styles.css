@@ -369,13 +369,13 @@ tr.candidate-row { cursor: pointer; }
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--border);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
 }
 
-.score-dot.filled-0 { background: var(--green); }
-.score-dot.filled-1 { background: var(--yellow); }
-.score-dot.filled-2 { background: var(--orange); }
-.score-dot.filled-3 { background: var(--red); }
+.score-dot.filled-1 { background: var(--yellow); border-color: var(--yellow); }
+.score-dot.filled-2 { background: var(--orange); border-color: var(--orange); }
+.score-dot.filled-3 { background: var(--red); border-color: var(--red); }
 
 /* === Detail Panel === */
 .detail-overlay {
