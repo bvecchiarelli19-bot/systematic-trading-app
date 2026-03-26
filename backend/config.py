@@ -6,8 +6,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-DB_PATH = DATA_DIR / "screener.db"
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+# Database — use DATABASE_URL env var (Postgres on Render) or fall back to SQLite
+_db_url = os.getenv("DATABASE_URL")
+if _db_url:
+    # Render uses postgres:// but SQLAlchemy needs postgresql://
+    DATABASE_URL = _db_url.replace("postgres://", "postgresql://", 1)
+else:
+    DB_PATH = DATA_DIR / "screener.db"
+    DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 # How often to refresh market data (minutes)
 REFRESH_INTERVAL_MINUTES = int(os.getenv("REFRESH_INTERVAL", "60"))

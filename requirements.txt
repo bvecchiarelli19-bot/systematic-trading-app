@@ -4,6 +4,7 @@ yfinance
 pandas
 numpy
 sqlalchemy
+psycopg2-binary
 apscheduler
 jinja2
 python-dotenv

@@ -16,6 +16,7 @@ _state = {
     "last_error": None,
     "is_running": False,
     "initial_load_done": False,
+    "warnings": [],
 }
 
 
@@ -30,6 +31,7 @@ def refresh_data():
         return
 
     _state["is_running"] = True
+    _state["warnings"] = []
     try:
         logger.info("Starting data refresh...")
 
@@ -39,9 +41,11 @@ def refresh_data():
             raise ValueError("Failed to fetch S&P 500 list")
         update_stock_list(tickers)
 
-        # 2. Download price data
+        # 2. Download price data (now returns stats with warnings)
         ticker_symbols = [t["ticker"] for t in tickers]
-        fetch_price_data(ticker_symbols)
+        fetch_result = fetch_price_data(ticker_symbols)
+        if isinstance(fetch_result, dict) and fetch_result.get("warnings"):
+            _state["warnings"] = fetch_result["warnings"]
 
         # 3. Run screener
         result = run_screener()

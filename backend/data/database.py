@@ -1,9 +1,16 @@
-"""SQLite database setup with SQLAlchemy."""
+"""Database setup with SQLAlchemy — supports SQLite (local) and PostgreSQL (production)."""
 from sqlalchemy import create_engine, Column, Integer, Float, String, Date, DateTime, Text, Boolean, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker
 from backend.config import DATABASE_URL
 
-engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+_connect_args = {"check_same_thread": False} if _is_sqlite else {}
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args=_connect_args,
+    pool_pre_ping=not _is_sqlite,
+)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -14,6 +21,7 @@ class Stock(Base):
     ticker = Column(String, unique=True, nullable=False, index=True)
     name = Column(String)
     sector = Column(String)
+    last_fetched = Column(DateTime)
 
 
 class PriceHistory(Base):

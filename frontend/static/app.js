@@ -34,10 +34,12 @@ document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
     pollStatus();
     fetchData();
+    fetchSectors();
     // Poll every 15 seconds for status updates
     state.polling = setInterval(() => {
         pollStatus();
         fetchData();
+        fetchSectors();
     }, 15000);
 });
 
@@ -230,10 +232,10 @@ function renderTable() {
             <td class="price-cell">$${c.price?.toFixed(2) ?? "—"}</td>
             <td><span class="regime-badge regime-${c.regime}">${c.regime}</span></td>
             <td>${renderPosBar(c.position_pct)}</td>
-            <td class="numeric-cell">${renderScoreDots(c.scores.vol, "Vol")}</td>
-            <td class="numeric-cell">${renderScoreDots(c.scores.trend, "SMA")}</td>
-            <td class="numeric-cell">${renderScoreDots(c.scores.hurst, "H")}</td>
-            <td class="numeric-cell">${renderScoreDots(c.scores.tail, "Tail")}</td>
+            <td class="numeric-cell">${renderScoreDots(c.scores.vol, "Vol %ile", c.indicators.vol_percentile?.toFixed(1) + "%")}</td>
+            <td class="numeric-cell">${renderScoreDots(c.scores.trend, "SMA", c.indicators.sma_trend)}</td>
+            <td class="numeric-cell">${renderScoreDots(c.scores.hurst, "Hurst", c.indicators.hurst?.toFixed(3))}</td>
+            <td class="numeric-cell">${renderScoreDots(c.scores.tail, "Tail Risk", c.indicators.tail_risk?.toFixed(2) + "%")}</td>
             <td class="numeric-cell" style="font-weight:700">${c.composite_score ?? "—"}</td>
         </tr>`
         )
@@ -273,8 +275,9 @@ function renderPosBar(pct) {
     </div>`;
 }
 
-function renderScoreDots(score, label) {
-    let html = '<div class="score-dots" title="' + label + ': ' + score + '/3">';
+function renderScoreDots(score, label, rawValue) {
+    const tip = rawValue != null ? `${label}: ${rawValue} (${score}/3)` : `${label}: ${score}/3`;
+    let html = '<div class="score-dots" title="' + tip + '">';
     for (let i = 0; i < 3; i++) {
         html += `<div class="score-dot ${i < score ? "filled-" + score : ""}"></div>`;
     }
@@ -335,6 +338,7 @@ function renderDetail() {
     document.getElementById("detail-ticker").textContent = d.ticker;
     document.getElementById("detail-name").textContent = d.name;
     document.getElementById("detail-sector").textContent = d.sector;
+    document.getElementById("detail-last-fetched").textContent = d.last_fetched ? `Data: ${timeAgo(d.last_fetched)}` : "";
     document.getElementById("detail-price").textContent = `$${d.price?.toFixed(2) ?? "—"}`;
     document.getElementById("detail-regime").className = `regime-badge regime-${d.regime}`;
     document.getElementById("detail-regime").textContent = d.regime;
@@ -429,6 +433,38 @@ function drawSparkline(priceHistory) {
     ctx.strokeStyle = trending ? "#22c55e" : "#ef4444";
     ctx.lineWidth = 1.5;
     ctx.stroke();
+}
+
+// ── Sector Regime Chart ───────────────────────────────
+async function fetchSectors() {
+    try {
+        const data = await API.get("/api/sectors");
+        renderSectorChart(data);
+    } catch (e) {
+        // Silently ignore — sector chart is supplementary
+    }
+}
+
+function renderSectorChart(sectors) {
+    const container = document.getElementById("sector-chart");
+    if (!container || !sectors || sectors.length === 0) return;
+
+    container.innerHTML = sectors.map(s => {
+        const pctCalm = s.total ? (s.CALM / s.total * 100) : 0;
+        const pctCautious = s.total ? (s.CAUTIOUS / s.total * 100) : 0;
+        const pctRisky = s.total ? (s.RISKY / s.total * 100) : 0;
+        const pctCrisis = s.total ? (s.CRISIS / s.total * 100) : 0;
+        return `<div class="sector-row">
+            <div class="sector-label" title="${s.sector}">${s.sector}</div>
+            <div class="sector-bar">
+                ${pctCalm > 0 ? `<div class="seg seg-calm" style="width:${pctCalm}%" title="CALM: ${s.CALM}"></div>` : ""}
+                ${pctCautious > 0 ? `<div class="seg seg-cautious" style="width:${pctCautious}%" title="CAUTIOUS: ${s.CAUTIOUS}"></div>` : ""}
+                ${pctRisky > 0 ? `<div class="seg seg-risky" style="width:${pctRisky}%" title="RISKY: ${s.RISKY}"></div>` : ""}
+                ${pctCrisis > 0 ? `<div class="seg seg-crisis" style="width:${pctCrisis}%" title="CRISIS: ${s.CRISIS}"></div>` : ""}
+            </div>
+            <div class="sector-count">${s.total}</div>
+        </div>`;
+    }).join("");
 }
 
 // ── Helpers ────────────────────────────────────────────

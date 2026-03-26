@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=3">
+    <link rel="stylesheet" href="/static/styles.css?v=5">
 </head>
 <body>
     <div class="app-container">
@@ -65,6 +65,12 @@
             </div>
         </div>
 
+        <!-- Sector Regime Chart -->
+        <div class="sector-chart-container" id="sector-chart-wrapper">
+            <h3 class="section-label">SECTOR REGIME BREAKDOWN</h3>
+            <div id="sector-chart"></div>
+        </div>
+
         <!-- Loading State -->
         <div id="loading-state" class="loading-state">
             <div class="loading-spinner"></div>
@@ -104,6 +110,7 @@
                     <div class="detail-ticker" id="detail-ticker"></div>
                     <div class="detail-name" id="detail-name"></div>
                     <div class="detail-name" id="detail-sector" style="margin-top:2px"></div>
+                    <div id="detail-last-fetched" style="font-size:10px;color:var(--text-muted);margin-top:4px"></div>
                 </div>
                 <button class="close-btn" id="close-detail">&times;</button>
             </div>
@@ -193,6 +200,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=4"></script>
+    <script src="/static/app.js?v=5"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 import threading
 from fastapi import APIRouter, Query, HTTPException
 
-from backend.services.screener_service import get_screener_results, get_stock_detail
+from backend.services.screener_service import get_screener_results, get_stock_detail, get_sector_summary
 from backend.services.scheduler import refresh_data, get_scheduler_state
 
 router = APIRouter(prefix="/api", tags=["screener"])
@@ -39,6 +39,12 @@ def stock_detail(ticker: str):
 def status():
     """Get data freshness and scheduler state."""
     return get_scheduler_state()
+
+
+@router.get("/sectors")
+def sectors():
+    """Get regime distribution by sector."""
+    return get_sector_summary()
 
 
 @router.post("/refresh")

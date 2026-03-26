@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 import numpy as np
-from sqlalchemy import text
+from sqlalchemy import text, func
 
 from backend.data.database import SessionLocal, Stock, PriceHistory, IndicatorSnapshot
 from backend.indicators.volatility import compute_volatility_percentile, score_volatility
@@ -155,6 +155,7 @@ def get_screener_results(
                     "hurst": snap.hurst_score,
                     "tail": snap.tail_score,
                 },
+                "last_fetched": stock.last_fetched.isoformat() if stock.last_fetched else None,
             })
 
         return {
@@ -210,6 +211,35 @@ def get_stock_detail(ticker: str) -> dict | None:
                 "tail": snap.tail_score,
             },
             "price_history": price_history,
+            "last_fetched": stock.last_fetched.isoformat() if stock.last_fetched else None,
         }
+    finally:
+        session.close()
+
+
+def get_sector_summary() -> list[dict]:
+    """Get regime distribution by sector."""
+    session = SessionLocal()
+    try:
+        results = (
+            session.query(
+                Stock.sector,
+                IndicatorSnapshot.regime,
+                func.count().label("count"),
+            )
+            .join(Stock, IndicatorSnapshot.ticker == Stock.ticker)
+            .group_by(Stock.sector, IndicatorSnapshot.regime)
+            .all()
+        )
+
+        # Build per-sector dict
+        sectors = {}
+        for sector, regime, count in results:
+            if sector not in sectors:
+                sectors[sector] = {"sector": sector, "CALM": 0, "CAUTIOUS": 0, "RISKY": 0, "CRISIS": 0, "total": 0}
+            sectors[sector][regime] = count
+            sectors[sector]["total"] += count
+
+        return sorted(sectors.values(), key=lambda s: s["sector"])
     finally:
         session.close()

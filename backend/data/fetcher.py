@@ -1,5 +1,6 @@
-"""Market data fetcher using yfinance."""
+"""Market data fetcher using yfinance with retry logic and rate limiting."""
 import logging
+import time
 from datetime import datetime
 
 import pandas as pd
@@ -11,6 +12,9 @@ from backend.data.database import SessionLocal, PriceHistory, Stock
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 50
+MAX_RETRIES = 3
+RETRY_DELAY = 2          # seconds, doubles each retry
+BATCH_DELAY = 1.0        # seconds between batches to avoid rate limits
 
 
 def update_stock_list(tickers: list[dict]):
@@ -30,10 +34,11 @@ def update_stock_list(tickers: list[dict]):
         session.close()
 
 
-def fetch_price_data(tickers: list[str], period: str = "2y") -> int:
-    """Download price history for all tickers. Returns count of rows inserted."""
+def fetch_price_data(tickers: list[str], period: str = "2y") -> dict:
+    """Download price history for all tickers. Returns stats dict."""
     session = SessionLocal()
     total_inserted = 0
+    warnings = []
 
     try:
         # Find which tickers already have data
@@ -47,10 +52,20 @@ def fetch_price_data(tickers: list[str], period: str = "2y") -> int:
         incremental_tickers = [t for t in tickers if t in existing_tickers]
 
         if full_tickers:
-            total_inserted += _download_batch(session, full_tickers, period=period)
+            ins, warns = _download_batch(session, full_tickers, period=period)
+            total_inserted += ins
+            warnings.extend(warns)
 
         if incremental_tickers:
-            total_inserted += _download_batch(session, incremental_tickers, period="5d")
+            ins, warns = _download_batch(session, incremental_tickers, period="5d")
+            total_inserted += ins
+            warnings.extend(warns)
+
+        # Update last_fetched timestamps for all tickers that have data
+        now = datetime.utcnow()
+        session.query(Stock).filter(Stock.ticker.in_(tickers)).update(
+            {Stock.last_fetched: now}, synchronize_session=False
+        )
 
         session.commit()
         logger.info(f"Inserted {total_inserted} price rows total")
@@ -61,36 +76,69 @@ def fetch_price_data(tickers: list[str], period: str = "2y") -> int:
     finally:
         session.close()
 
-    return total_inserted
+    return {"inserted": total_inserted, "warnings": warnings}
 
 
-def _download_batch(session, tickers: list[str], period: str) -> int:
-    """Download a batch of tickers and store in DB."""
+def _download_batch(session, tickers: list[str], period: str) -> tuple[int, list]:
+    """Download a batch of tickers and store in DB. Returns (inserted, warnings)."""
     inserted = 0
+    warnings = []
+    num_batches = (len(tickers) + BATCH_SIZE - 1) // BATCH_SIZE
 
     for i in range(0, len(tickers), BATCH_SIZE):
         batch = tickers[i:i + BATCH_SIZE]
-        logger.info(f"Downloading batch {i // BATCH_SIZE + 1}/{(len(tickers) + BATCH_SIZE - 1) // BATCH_SIZE}: {len(batch)} tickers")
+        batch_num = i // BATCH_SIZE + 1
+        logger.info(f"Downloading batch {batch_num}/{num_batches}: {len(batch)} tickers")
 
-        try:
-            df = yf.download(batch, period=period, threads=True, progress=False)
-        except Exception as e:
-            logger.error(f"yfinance download failed for batch: {e}")
-            continue
+        df = _download_with_retry(batch, period)
 
         if df is None or df.empty:
+            warnings.append(f"Batch {batch_num}: all {len(batch)} tickers returned no data")
             continue
 
         if len(batch) == 1:
-            # Single ticker: columns are like 'Close', 'Open', etc. (flat)
-            # But yfinance 1.2 may still use MultiIndex with single ticker
             ticker = batch[0]
-            inserted += _store_single(session, ticker, df)
+            batch_inserted = _store_single(session, ticker, df)
         else:
-            # Multi-ticker: MultiIndex columns (Price, Ticker)
-            inserted += _store_multi(session, batch, df)
+            batch_inserted = _store_multi(session, batch, df)
 
-    return inserted
+        if batch_inserted == 0 and period != "5d":
+            warnings.append(f"Batch {batch_num}: 0 new rows inserted for {len(batch)} tickers")
+
+        inserted += batch_inserted
+
+        # Rate limit delay between batches
+        if i + BATCH_SIZE < len(tickers):
+            time.sleep(BATCH_DELAY)
+
+    return inserted, warnings
+
+
+def _download_with_retry(tickers: list[str], period: str) -> pd.DataFrame | None:
+    """Download with exponential backoff retry."""
+    delay = RETRY_DELAY
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            df = yf.download(tickers, period=period, threads=True, progress=False)
+            if df is not None and not df.empty:
+                # Check for all-NaN data (yfinance returns shape but no values)
+                if df.dropna(how="all").empty:
+                    logger.warning(f"Attempt {attempt}: got empty DataFrame for {len(tickers)} tickers")
+                    if attempt < MAX_RETRIES:
+                        time.sleep(delay)
+                        delay *= 2
+                        continue
+                return df
+            return df
+        except Exception as e:
+            logger.warning(f"Attempt {attempt}/{MAX_RETRIES} failed: {e}")
+            if attempt < MAX_RETRIES:
+                time.sleep(delay)
+                delay *= 2
+            else:
+                logger.error(f"All {MAX_RETRIES} attempts failed for batch of {len(tickers)}")
+                return None
+    return None
 
 
 def _store_single(session, ticker: str, df: pd.DataFrame) -> int:
@@ -126,10 +174,8 @@ def _store_multi(session, tickers: list[str], df: pd.DataFrame) -> int:
     for ticker in tickers:
         try:
             # yfinance 1.2: columns are MultiIndex (Price, Ticker)
-            # Try to extract this ticker's data
             ticker_close = None
             if isinstance(df.columns, pd.MultiIndex):
-                # Try (Price, Ticker) format
                 if ("Close", ticker) in df.columns:
                     ticker_data = {}
                     for price_type in ["Open", "High", "Low", "Close", "Volume"]:
@@ -175,7 +221,6 @@ def _store_multi(session, tickers: list[str], df: pd.DataFrame) -> int:
 def _extract_val(row, field: str, ticker: str):
     """Extract a value from a row, handling both flat and MultiIndex formats."""
     try:
-        # Try MultiIndex first (Price, Ticker)
         val = row.get((field, ticker))
         if val is not None and not pd.isna(val):
             return float(val)
@@ -183,7 +228,6 @@ def _extract_val(row, field: str, ticker: str):
         pass
 
     try:
-        # Try flat column
         val = row.get(field)
         if val is not None and not pd.isna(val):
             return float(val)

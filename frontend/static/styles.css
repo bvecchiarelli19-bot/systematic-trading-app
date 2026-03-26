@@ -377,6 +377,57 @@ tr.candidate-row { cursor: pointer; }
 .score-dot.filled-2 { background: var(--orange); border-color: var(--orange); }
 .score-dot.filled-3 { background: var(--red); border-color: var(--red); }
 
+/* === Sector Regime Chart === */
+.sector-chart-container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+.sector-chart-container .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+.sector-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+.sector-label {
+    width: 160px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+}
+.sector-bar {
+    flex: 1;
+    height: 14px;
+    display: flex;
+    border-radius: 3px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.04);
+}
+.seg { min-width: 2px; }
+.seg-calm { background: var(--green); }
+.seg-cautious { background: var(--yellow); }
+.seg-risky { background: var(--orange); }
+.seg-crisis { background: var(--red); }
+.sector-count {
+    width: 28px;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+    flex-shrink: 0;
+}
+
 /* === Detail Panel === */
 .detail-overlay {
     position: fixed;
