@@ -105,5 +105,18 @@ class JournalEntry(Base):
     closed_at = Column(String)                            # ISO datetime
 
 
+def _run_migrations():
+    """Add columns that may be missing from existing databases."""
+    from sqlalchemy import inspect, text
+    insp = inspect(engine)
+    # Add last_fetched to stocks if missing
+    if "stocks" in insp.get_table_names():
+        cols = [c["name"] for c in insp.get_columns("stocks")]
+        if "last_fetched" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE stocks ADD COLUMN last_fetched DATETIME"))
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _run_migrations()
